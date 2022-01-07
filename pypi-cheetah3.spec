@@ -18,11 +18,11 @@ BuildRequires : buildreq-distutils3
 Provides: Cheetah3
 Provides: Cheetah3-python
 Provides: Cheetah3-python3
-BuildRequires : pluggy
+BuildRequires : pypi(pluggy)
 BuildRequires : py-python
 BuildRequires : pytest
 BuildRequires : tox
-BuildRequires : virtualenv
+BuildRequires : pypi(virtualenv)
 
 %description
 It can be used standalone or combined with other tools and frameworks. Web
