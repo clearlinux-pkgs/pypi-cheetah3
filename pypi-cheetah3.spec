@@ -4,13 +4,15 @@
 #
 Name     : pypi-cheetah3
 Version  : 3.2.6.post1
-Release  : 32
+Release  : 33
 URL      : https://files.pythonhosted.org/packages/23/33/ace0250068afca106c1df34348ab0728e575dc9c61928d216de3e381c460/Cheetah3-3.2.6.post1.tar.gz
 Source0  : https://files.pythonhosted.org/packages/23/33/ace0250068afca106c1df34348ab0728e575dc9c61928d216de3e381c460/Cheetah3-3.2.6.post1.tar.gz
 Summary  : Cheetah is a template engine and code generation tool
 Group    : Development/Tools
 License  : MIT
 Requires: pypi-cheetah3-bin = %{version}-%{release}
+Requires: pypi-cheetah3-filemap = %{version}-%{release}
+Requires: pypi-cheetah3-lib = %{version}-%{release}
 Requires: pypi-cheetah3-license = %{version}-%{release}
 Requires: pypi-cheetah3-python = %{version}-%{release}
 Requires: pypi-cheetah3-python3 = %{version}-%{release}
@@ -37,9 +39,28 @@ It can be used standalone or combined with other tools and frameworks. Web
 Summary: bin components for the pypi-cheetah3 package.
 Group: Binaries
 Requires: pypi-cheetah3-license = %{version}-%{release}
+Requires: pypi-cheetah3-filemap = %{version}-%{release}
 
 %description bin
 bin components for the pypi-cheetah3 package.
+
+
+%package filemap
+Summary: filemap components for the pypi-cheetah3 package.
+Group: Default
+
+%description filemap
+filemap components for the pypi-cheetah3 package.
+
+
+%package lib
+Summary: lib components for the pypi-cheetah3 package.
+Group: Libraries
+Requires: pypi-cheetah3-license = %{version}-%{release}
+Requires: pypi-cheetah3-filemap = %{version}-%{release}
+
+%description lib
+lib components for the pypi-cheetah3 package.
 
 
 %package license
@@ -62,6 +83,7 @@ python components for the pypi-cheetah3 package.
 %package python3
 Summary: python3 components for the pypi-cheetah3 package.
 Group: Default
+Requires: pypi-cheetah3-filemap = %{version}-%{release}
 Requires: python3-core
 Provides: pypi(cheetah3)
 
@@ -72,13 +94,16 @@ python3 components for the pypi-cheetah3 package.
 %prep
 %setup -q -n Cheetah3-3.2.6.post1
 cd %{_builddir}/Cheetah3-3.2.6.post1
+pushd ..
+cp -a Cheetah3-3.2.6.post1 buildavx2
+popd
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1649726876
+export SOURCE_DATE_EPOCH=1653008940
 export GCC_IGNORE_WERROR=1
 export AR=gcc-ar
 export RANLIB=gcc-ranlib
@@ -90,6 +115,15 @@ export CXXFLAGS="$CXXFLAGS -O3 -ffat-lto-objects -flto=auto "
 export MAKEFLAGS=%{?_smp_mflags}
 python3 setup.py build
 
+pushd ../buildavx2/
+export CFLAGS="$CFLAGS -m64 -march=x86-64-v3 -Wl,-z,x86-64-v3 "
+export CXXFLAGS="$CXXFLAGS -m64 -march=x86-64-v3 -Wl,-z,x86-64-v3 "
+export FFLAGS="$FFLAGS -m64 -march=x86-64-v3 -Wl,-z,x86-64-v3 "
+export FCFLAGS="$FCFLAGS -m64 -march=x86-64-v3 "
+export LDFLAGS="$LDFLAGS -m64 -march=x86-64-v3 "
+python3 setup.py build
+
+popd
 %install
 export MAKEFLAGS=%{?_smp_mflags}
 rm -rf %{buildroot}
@@ -99,6 +133,15 @@ python3 -tt setup.py build  install --root=%{buildroot}
 echo ----[ mark ]----
 cat %{buildroot}/usr/lib/python3*/site-packages/*/requires.txt || :
 echo ----[ mark ]----
+pushd ../buildavx2/
+export CFLAGS="$CFLAGS -m64 -march=x86-64-v3 -Wl,-z,x86-64-v3 "
+export CXXFLAGS="$CXXFLAGS -m64 -march=x86-64-v3 -Wl,-z,x86-64-v3 "
+export FFLAGS="$FFLAGS -m64 -march=x86-64-v3 -Wl,-z,x86-64-v3 "
+export FCFLAGS="$FCFLAGS -m64 -march=x86-64-v3 "
+export LDFLAGS="$LDFLAGS -m64 -march=x86-64-v3 "
+python3 -tt setup.py build install --root=%{buildroot}-v3
+popd
+/usr/bin/elf-move.py avx2 %{buildroot}-v3 %{buildroot}/usr/share/clear/optimized-elf/ %{buildroot}/usr/share/clear/filemap/filemap-%{name}
 
 %files
 %defattr(-,root,root,-)
@@ -108,6 +151,14 @@ echo ----[ mark ]----
 /usr/bin/cheetah
 /usr/bin/cheetah-analyze
 /usr/bin/cheetah-compile
+
+%files filemap
+%defattr(-,root,root,-)
+/usr/share/clear/filemap/filemap-pypi-cheetah3
+
+%files lib
+%defattr(-,root,root,-)
+/usr/share/clear/optimized-elf/other*
 
 %files license
 %defattr(0644,root,root,0755)
