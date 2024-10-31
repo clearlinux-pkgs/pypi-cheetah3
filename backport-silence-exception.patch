@@ -1,0 +1,64 @@
+From 295706a2caee17e86151b048dd271685852a0b0e Mon Sep 17 00:00:00 2001
+From: Oleg Broytman <phd@phdru.name>
+Date: Tue, 18 Jun 2024 15:19:44 +0300
+Subject: [PATCH] Fix(_namemapper.c): Silent an inadvertent exception
+
+Silent a `TypeError` in `PyMapping_HasKeyString` under Python 3.13+
+caused by `_namemapper` looking up a key in a non-dictionary.
+
+Refs: #60.
+
+[skip ci]
+---
+ Cheetah/c/_namemapper.c | 19 +++++++++++++++++--
+ docs/news.rst           |  4 ++++
+ 2 files changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/Cheetah/c/_namemapper.c b/Cheetah/c/_namemapper.c
+index 15ab99a8..b7481421 100644
+--- a/Cheetah/c/_namemapper.c
++++ b/Cheetah/c/_namemapper.c
+@@ -179,11 +179,26 @@ static PyObject *PyNamemapper_valueForName(PyObject *obj, char *nameChunks[], in
+             return NULL;
+         }
+ 
++        #if PY_VERSION_HEX >= 0x030d0000
++        /* Python 3.13+: this is to silent error from PyMapping_HasKeyString */
++        if (PyMapping_Check(currentVal) && PyMapping_GetOptionalItemString(currentVal, currentKey, &nextVal)
++                && (!PyErr_Occurred())
++           ) {
++        #else
+         if (PyMapping_Check(currentVal) && PyMapping_HasKeyString(currentVal, currentKey)) {
+             nextVal = PyMapping_GetItemString(currentVal, currentKey);
+-        }
++        #endif
+ 
+-        else {
++        } else {
++        #if PY_VERSION_HEX >= 0x030d0000
++            if ((PyErr_Occurred() != NULL) &&
++                   (PyErr_ExceptionMatches(PyExc_TypeError))) {
++                /* Python 3.13+ don't like testing 'str1'['str2'].
++                   The error must be silenced to continue testing
++                   getattr('str1', 'str2'). */
++                PyErr_Clear();
++            }
++        #endif
+             PyObject *exc;
+             nextVal = PyObject_GetAttrString(currentVal, currentKey);
+             exc = PyErr_Occurred();
+diff --git a/docs/news.rst b/docs/news.rst
+index 8d2c877b..cbd7b050 100644
+--- a/docs/news.rst
++++ b/docs/news.rst
+@@ -12,6 +12,10 @@ Bug fixes:
+   - Fixed ``Template.webInput``: Use ``urllib.parse.parse_qs``
+     instead of ``cgi.FieldStorage``; Python 3.13 dropped ``cgi``.
+ 
++  - Fixed ``_namemapper.c``: Silent an inadvertent ``TypeError`` exception
++    in ``PyMapping_HasKeyString`` under Python 3.13+
++    caused by ``_namemapper`` looking up a key in a non-dictionary.
++
+ Tests:
+ 
+   - tox: Run tests under Python 3.13.
